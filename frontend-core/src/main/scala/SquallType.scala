@@ -58,7 +58,8 @@ object SquallType extends Serializable{
   object Macros {
     def materializeSquallTypeImpl[T : c.WeakTypeTag](c: Context): c.Expr[SquallType[T]] = {
       import c.universe._
-      val tpe = weakTypeOf[T]
+      val tpe = weakTypeOf[T].normalize
+      // println(s"Materializing macro invoked for the type $tpe")
       def isTuple = tpe.typeSymbol.name.toString.startsWith("Tuple")
       val fieldTypes = if(!isTuple)
           tpe.decls.filter(_.asTerm.isVal).map(f => f.asTerm.getter.name.toTermName -> f.typeSignature)
