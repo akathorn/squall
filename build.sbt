@@ -38,14 +38,17 @@ lazy val core = (project in file("core")).
 
       // guava: ? -> 13.0
       // [This one had to be added to provide com.google.common.io]
-      "com.google.guava" % "guava" % "13.0"
+      "com.google.guava" % "guava" % "13.0",
+
+
+      "junit" % "junit" % "4.12" % Test,
+      "com.novocode" % "junit-interface" % "0.11" % Test
     ),
 
 
     // http://www.scala-sbt.org/0.13/docs/Running-Project-Code.html
     // We need to fork the JVM, as storm uses multiple threads
-    fork in run := true,
-    baseDirectory in run := file("."),
+    fork := true,
 
     runParser := {
       val one = (runMain in Compile).partialInput(" sql.main.ParserMain").evaluated
@@ -54,7 +57,6 @@ lazy val core = (project in file("core")).
     runPlanner := {
       val one = (runMain in Compile).partialInput(" plan_runner.main.Main").evaluated
     }
-
   )
 
 lazy val frontend = (project in file("frontend")).
