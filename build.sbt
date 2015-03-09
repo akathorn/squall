@@ -1,3 +1,6 @@
+lazy val runParser = inputKey[Unit]("Runs the SQL interface with the given configuration.")
+lazy val runPlanner = inputKey[Unit]("Runs the imperative interface with the given configuration.")
+
 lazy val commonSettings = Seq(
   name := "squall",
   organization := "ch.epfl.data",
@@ -12,6 +15,7 @@ lazy val core = (project in file("core")).
     javacOptions ++= Seq(
       "-target", "1.7",
       "-source", "1.7"),
+
     // We need to add Clojars as a resolver, as Storm depends on some
     // libraries from there.
     resolvers += "clojars" at "https://clojars.org/repo",
@@ -35,7 +39,22 @@ lazy val core = (project in file("core")).
       // guava: ? -> 13.0
       // [This one had to be added to provide com.google.common.io]
       "com.google.guava" % "guava" % "13.0"
-    )
+    ),
+
+
+    // http://www.scala-sbt.org/0.13/docs/Running-Project-Code.html
+    // We need to fork the JVM, as storm uses multiple threads
+    fork in run := true,
+    baseDirectory in run := file("."),
+
+    runParser := {
+      val one = (runMain in Compile).partialInput(" sql.main.ParserMain").evaluated
+    },
+
+    runPlanner := {
+      val one = (runMain in Compile).partialInput(" plan_runner.main.Main").evaluated
+    }
+
   )
 
 lazy val frontend = (project in file("frontend")).
