@@ -1,8 +1,5 @@
 #!/bin/bash
 
-cd ../deploy
+cd ../
 
-#../bin/lein clean
-#../bin/lein deps
-
-../bin/lein uberjar
+sbt clean package
