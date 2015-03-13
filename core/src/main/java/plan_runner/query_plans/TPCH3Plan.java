@@ -34,7 +34,7 @@ import plan_runner.predicates.ComparisonPredicate;
  ORDER BY REVENUE DESC, O_ORDERDATE
  */
 
-public class TPCH3Plan {
+public class TPCH3Plan implements QueryPlan {
 	private static Logger LOG = Logger.getLogger(TPCH3Plan.class);
 
 	private static final String _customerMktSegment = "BUILDING";

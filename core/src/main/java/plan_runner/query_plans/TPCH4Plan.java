@@ -34,7 +34,7 @@ import plan_runner.predicates.ComparisonPredicate;
  ORDER BY O_ORDERPRIORITY
  */
 
-public class TPCH4Plan {
+public class TPCH4Plan implements QueryPlan {
 	private static Logger LOG = Logger.getLogger(TPCH4Plan.class);
 
 	private static final TypeConversion<Date> _dc = new DateConversion();

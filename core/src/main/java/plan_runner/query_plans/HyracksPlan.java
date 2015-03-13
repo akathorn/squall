@@ -9,11 +9,11 @@ import plan_runner.conversion.IntegerConversion;
 import plan_runner.operators.AggregateCountOperator;
 import plan_runner.operators.ProjectOperator;
 
-public class HyracksPlan {
+public class HyracksPlan implements QueryPlan {
 	
 	private final QueryBuilder _queryBuilder = new QueryBuilder();
 
-	public HyracksPlan(Map conf) {
+	public HyracksPlan(String dataPath, String extension, Map conf) {
 		// -------------------------------------------------------------------------------------
 		Component relationCustomer = _queryBuilder.createDataSource("customer", conf)
 				.add(new ProjectOperator(0, 6))
@@ -30,7 +30,7 @@ public class HyracksPlan {
 		// -------------------------------------------------------------------------------------
 	}
 
-	public QueryBuilder getQueryBuilder() {
+	public QueryBuilder getQueryPlan() {
 		return _queryBuilder;
 	}
 }

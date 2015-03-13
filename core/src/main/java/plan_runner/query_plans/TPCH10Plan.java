@@ -28,7 +28,7 @@ import plan_runner.operators.SelectOperator;
 import plan_runner.predicates.BetweenPredicate;
 import plan_runner.predicates.ComparisonPredicate;
 
-public class TPCH10Plan {
+public class TPCH10Plan implements QueryPlan {
 	private static Logger LOG = Logger.getLogger(TPCH10Plan.class);
 
 	private static final TypeConversion<Date> _dc = new DateConversion();
