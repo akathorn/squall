@@ -56,17 +56,13 @@ lazy val core = (project in file("core")).
 
     runPlanner := {
       val one = (runMain in Compile).partialInput(" plan_runner.main.Main").evaluated
-    }
+    },
+
+    // Testing
+    libraryDependencies +=  "org.scalatest" % "scalatest_2.11" % "2.2.4" % Test
   )
 
-lazy val frontend = (project in file("frontend")).
-  dependsOn(core, frontend_core).
-  settings(commonSettings: _*).
-  settings(
-    name := "squall-frontend",
-    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _)
-  )
-
+// For the macros
 lazy val frontend_core = (project in file("frontend-core")).
   dependsOn(core).
   settings(commonSettings: _*).
@@ -74,3 +70,20 @@ lazy val frontend_core = (project in file("frontend-core")).
     name := "squall-frontend-core",
     libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _)
   )
+
+lazy val frontend = (project in file("frontend")).
+  dependsOn(core, frontend_core).
+  settings(commonSettings: _*).
+  settings(
+//    fork := true,
+    // TODO: this is only necessary because we are using the .jar for testing
+    (test in Test) := {
+      (Keys.`package` in Compile).value
+        (test in Test).value
+    },
+
+    name := "squall-frontend",
+    libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-reflect" % _),
+    libraryDependencies +=  "org.scalatest" % "scalatest_2.11" % "2.2.4" % Test
+  )
+

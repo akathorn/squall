@@ -137,24 +137,26 @@ public class LocalMergeResults {
 			}
 	}
 
-	private static void localCompare(Map map) {
+	private static int localCompare(Map map) {
 		if (_fileAgg == null) {
 			LOG.info("\nCannot validate the result, result file " + getResultFilePath(map)
 					+ " does not exist."
 					+ "\n  Make sure you specified correct DIP_RESULT_ROOT and"
 					+ "\n  created result file with correct name.");
-			return;
+			return 1;
 		}
-		if (_computedAgg.getStorage().equals(_fileAgg.getStorage()))
+		if (_computedAgg.getStorage().equals(_fileAgg.getStorage())) {
 			LOG.info("\nOK: Expected result achieved for "
 					+ SystemParameters.getString(map, "DIP_TOPOLOGY_NAME"));
-		else {
+                        return 0;
+                } else {
 			final StringBuilder sb = new StringBuilder();
 			sb.append("\nPROBLEM: Not expected result achieved for ").append(
 					SystemParameters.getString(map, "DIP_TOPOLOGY_NAME"));
 			sb.append("\nCOMPUTED: \n").append(_computedAgg.printContent());
 			sb.append("\nFROM THE RESULT FILE: \n").append(_fileAgg.printContent());
 			LOG.info(sb.toString());
+                        return 1;
 		}
 	}
 
@@ -175,8 +177,8 @@ public class LocalMergeResults {
 	// all the classes
 	// we need it due to collectedLastComponents, and lines of result
 	// in cluster mode, they can communicate only through conf file
-	public static void localPrintAndCompare(Map map) {
+	public static int localPrintAndCompare(Map map) {
 		localPrint(_computedAgg.printContent(), map);
-		localCompare(map);
+		return localCompare(map);
 	}
 }
