@@ -50,6 +50,10 @@ lazy val core = (project in file("core")).
     // We need to fork the JVM, as storm uses multiple threads
     fork := true,
 
+    // TODO: extra jars should be specified through the command line somehow
+    unmanagedClasspath in Runtime += baseDirectory.value / "../frontend/target/scala-2.11/squall-frontend_2.11-0.2.0.jar",
+    unmanagedClasspath in Runtime += baseDirectory.value / "../frontend-core/target/scala-2.11/squall-frontend-core_2.11-0.2.0.jar",
+
     runParser := {
       val one = (runMain in Compile).partialInput(" sql.main.ParserMain").evaluated
     },
