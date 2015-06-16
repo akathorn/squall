@@ -182,8 +182,8 @@ public class DataSourceComponent implements Component {
 		    _componentName
 			    + ": Distinct operator cannot be specified for multiple spouts for one input file!");
 
-	MyUtilities.checkBatchOutput(_batchOutputMillis,
-		_chain.getAggregation(), conf);
+	// MyUtilities.checkBatchOutput(_batchOutputMillis,
+	// 	_chain.getAggregation(), conf);
 
 	_dataSource = new StormDataSource(this, allCompNames, _inputPath,
 		hierarchyPosition, parallelism, _isPartitioner, builder,
@@ -192,10 +192,10 @@ public class DataSourceComponent implements Component {
 
     @Override
     public DataSourceComponent setBatchOutputMillis(long millis) {
-	throw new RuntimeException(
-		"Setting batch mode is not allowed for DataSourceComponents!");
-	// _batchOutputMillis = millis;
-	// return this;
+	// throw new RuntimeException(
+	// 	"Setting batch mode is not allowed for DataSourceComponents!");
+	_batchOutputMillis = millis;
+	return this;
     }
 
     @Override

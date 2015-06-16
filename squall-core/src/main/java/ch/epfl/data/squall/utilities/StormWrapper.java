@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.io.PrintWriter;
 
 import org.apache.log4j.Logger;
 import org.apache.thrift7.TException;
@@ -71,6 +72,8 @@ public class StormWrapper {
 	final String nimbusHost = SystemParameters.getString(conf,
 		Config.NIMBUS_HOST);
 	final int nimbusThriftPort = SystemParameters.NIMBUS_THRIFT_PORT;
+
+        LOG.info("Connecting to " + nimbusHost + " on port " + nimbusThriftPort);
 
 	if (distributed) {
 	    NimbusClient nimbus = null;
@@ -206,22 +209,23 @@ public class StormWrapper {
 		    .get_topologies_iterator();
 	    while (topologyIter.hasNext()) {
 		final TopologySummary topologySummary = topologyIter.next();
+              final StringBuilder tsb = new StringBuilder("");
 
 		// print out basic information about topologies
 		final String topologyName = topologySummary.get_name();
-		sb.append("For topology ").append(topologyName).append(":\n");
+		tsb.append("For topology ").append(topologyName).append(":\n");
 		final int numTasks = topologySummary.get_num_tasks();
-		sb.append(numTasks).append(" tasks, ");
+		tsb.append(numTasks).append(" tasks, ");
 		final int numWorkers = topologySummary.get_num_workers();
-		sb.append(numWorkers).append(" workers, ");
+		tsb.append(numWorkers).append(" workers, ");
 		final int uptimeSecs = topologySummary.get_uptime_secs();
-		sb.append(uptimeSecs).append(" uptime seconds.\n");
+		tsb.append(uptimeSecs).append(" uptime seconds.\n");
 
 		final String topologyID = topologySummary.get_id();
 		final String topologyConf = client.getTopologyConf(topologyID);
-		sb.append("Topology configuration is \n");
-		sb.append(topologyConf);
-		sb.append("\n");
+		tsb.append("Topology configuration is \n");
+		tsb.append(topologyConf);
+		tsb.append("\n");
 
 		final TopologyInfo topologyInfo = client
 			.getTopologyInfo(topologyID);
@@ -233,26 +237,26 @@ public class StormWrapper {
 		while (execIter.hasNext()) {
 		    final ExecutorSummary execSummary = execIter.next();
 		    final String componentId = execSummary.get_component_id();
-		    sb.append("component_id:").append(componentId).append(", ");
+		    tsb.append("component_id:").append(componentId).append(", ");
 		    final ExecutorInfo execInfo = execSummary
 			    .get_executor_info();
 		    final int taskStart = execInfo.get_task_start();
 		    final int taskEnd = execInfo.get_task_end();
-		    sb.append("task_id(s) for this executor:")
+		    tsb.append("task_id(s) for this executor:")
 			    .append(taskStart).append("-").append(taskEnd)
 			    .append(", ");
 		    final String host = execSummary.get_host();
-		    sb.append("host:").append(host).append(", ");
+		    tsb.append("host:").append(host).append(", ");
 		    final int port = execSummary.get_port();
-		    sb.append("port:").append(port).append(", ");
+		    tsb.append("port:").append(port).append(", ");
 		    final int uptime = execSummary.get_uptime_secs();
-		    sb.append("uptime:").append(uptime).append("\n");
-		    sb.append("\n");
+		    tsb.append("uptime:").append(uptime).append("\n");
+		    tsb.append("\n");
 
 		    // printing failing statistics, if there are failed tuples
 		    final ExecutorStats es = execSummary.get_stats();
 		    if (es == null)
-			sb.append("No info about failed tuples\n");
+			tsb.append("No info about failed tuples\n");
 		    else {
 			final ExecutorSpecificStats stats = es.get_specific();
 			boolean isEmpty;
@@ -269,7 +273,7 @@ public class StormWrapper {
 			    isEmpty = isEmptyMapMap(failed);
 			}
 			if (!isEmpty) {
-			    sb.append("ERROR: There are some failed tuples: ")
+			    tsb.append("ERROR: There are some failed tuples: ")
 				    .append(objFailed).append("\n");
 			    globalFailed = true;
 			}
@@ -278,18 +282,29 @@ public class StormWrapper {
 
 		// is there at least one component where something failed
 		if (!globalFailed)
-		    sb.append("OK: No tuples failed so far.\n");
+		    tsb.append("OK: No tuples failed so far.\n");
 		else
-		    sb.append("ERROR: Some tuples failed!\n");
+		    tsb.append("ERROR: Some tuples failed!\n");
 
 		// print topology errors
 		final Map<String, List<ErrorInfo>> errors = topologyInfo
 			.get_errors();
 		if (!isEmptyMap(errors))
-		    sb.append("ERROR: There are some errors in topology: ")
+		    tsb.append("ERROR: There are some errors in topology: ")
 			    .append(errors).append("\n");
 		else
-		    sb.append("OK: No errors in the topology.\n");
+		    tsb.append("OK: No errors in the topology.\n");
+
+                sb.append(tsb);
+                final String topostrStats = tsb.toString();
+                try {
+                  PrintWriter out = new PrintWriter("/shared/logs/" + topologyID);
+                  out.print(topostrStats);
+                  out.flush();
+                  out.close();
+                } catch (Exception ex) {
+                  LOG.info("writeStats:" + MyUtilities.getStackTrace(ex));
+                }
 
 	    }
 	    sb.append("\n\n");

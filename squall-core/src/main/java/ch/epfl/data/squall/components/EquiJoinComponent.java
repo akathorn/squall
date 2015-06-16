@@ -204,8 +204,8 @@ public class EquiJoinComponent extends JoinerComponent implements Component {
 		&& !_printOutSet)
 	    setPrintOut(true);
 
-	MyUtilities.checkBatchOutput(_batchOutputMillis,
-		_chain.getAggregation(), conf);
+	// MyUtilities.checkBatchOutput(_batchOutputMillis,
+	// 	_chain.getAggregation(), conf);
 
 	// If not set in Preaggregation, we set normal storages
 	if (_firstStorage == null)

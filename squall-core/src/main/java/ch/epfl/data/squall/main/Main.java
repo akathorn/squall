@@ -124,6 +124,7 @@ public class Main {
     int planSize = queryPlan.size();
 	for (int i = 0; i < planSize; i++) {
 	    Component component = queryPlan.get(i);
+            //            component.setBatchOutputMillis(1000);
         if (component instanceof DBToasterJoinComponent) {
         dbtComponents.add((DBToasterJoinComponent) component);
         }

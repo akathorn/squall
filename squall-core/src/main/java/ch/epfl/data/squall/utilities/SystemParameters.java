@@ -189,6 +189,14 @@ public class SystemParameters {
 	final Config conf = new Config();
 	conf.putAll(map);
 	setStormVariables(conf);
+
+        // To be able to set netty from the configuration file...
+        Object nettybatch = conf.get("storm.messaging.netty.transfer.batch.size");
+        if (nettybatch != null) {
+          conf.put("storm.messaging.netty.transfer.batch.size", Integer.parseInt(nettybatch.toString()));
+        }
+
+
 	return conf;
     }
 
