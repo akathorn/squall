@@ -84,7 +84,7 @@ class TestSuite extends FunSuite with BeforeAndAfterAll {
       fileAppender.setContext(loggerContext)
       fileAppender.setName(confName)
       // set the file name
-      val tempFile = File.createTempFile(confName, ".log")
+      val tempFile = File.createTempFile(confName, "_squall.log")
       println("\tWriting test output to " + tempFile.getAbsolutePath())
       fileAppender.setFile(tempFile.getAbsolutePath())
 
