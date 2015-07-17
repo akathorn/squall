@@ -80,6 +80,8 @@ lazy val squall = (project in file("squall-core")).
     // http://www.scala-sbt.org/0.13/docs/Running-Project-Code.html
     // We need to fork the JVM, as storm uses multiple threads
     fork := true,
+    //fork in Test := false,
+    parallelExecution in Test := false,
     // Running tasks
     runParser := {
       val arguments: Seq[String] = spaceDelimited("<arg>").parsed
