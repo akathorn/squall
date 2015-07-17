@@ -3,5 +3,4 @@ language: scala
 scala:
    - 2.11.6
 
-after_failure: tail -n +1 /tmp/*_squall.log
-
+# after_failure: tail -n +1 /tmp/*_squall.log
