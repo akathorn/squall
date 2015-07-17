@@ -67,10 +67,10 @@ class TestSuite extends FunSuite with BeforeAndAfterAll {
     }
   }
 
-  // override def afterAll() {
-  //   println("Shutting down local cluster")
-  //   StormWrapper.shutdown()
-  // }
+  override def afterAll() {
+    println("Shutting down local cluster")
+    StormWrapper.shutdown()
+  }
 
   object Logging {
     var fileAppender: FileAppender[ILoggingEvent] = null;
