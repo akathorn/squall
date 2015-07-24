@@ -176,11 +176,12 @@ public class StormWrapper {
 
     LOG.info("Waiting for results from topology '" + topologyName +"'");
     LocalMergeResults.waitForResults(plan.getNumberFinalTasks(conf));
-    LOG.info("Killing topology '" + topologyName +"'");
-    localCluster.killTopologyWithOpts(topologyName, options);
 
+    LOG.info("Killing topology '" + topologyName +"'");
     KillOptions options = new KillOptions();
     options.set_wait_secs(0);
+    localCluster.killTopologyWithOpts(topologyName, options);
+
     _waiting = false;
 
     return LocalMergeResults.getResults();
