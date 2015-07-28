@@ -93,7 +93,7 @@ public class StormHyperCubeJoin extends StormBoltComponent {
                                List<String> allCompNames, Map<String, Predicate> joinPredicates, int hierarchyPosition,
                                TopologyBuilder builder, TopologyKiller killer, Config conf, Type wrapper) {
 
-        super(cp, allCompNames, hierarchyPosition, false, conf);
+        super(cp, allCompNames, hierarchyPosition, conf);
 
         emitterIndexes = new ArrayList<String>();
         for (int i = 0; i < emitters.size(); i++) {

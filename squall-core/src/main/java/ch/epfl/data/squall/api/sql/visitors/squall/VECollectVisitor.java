@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ch.epfl.data.squall.components.Component;
-import ch.epfl.data.squall.ewh.operators.SampleAsideAndForwardOperator;
 import ch.epfl.data.squall.expressions.ValueExpression;
 import ch.epfl.data.squall.operators.AggregateOperator;
 import ch.epfl.data.squall.operators.ChainOperator;
@@ -117,12 +116,6 @@ public class VECollectVisitor implements OperatorVisitor {
     @Override
     public void visit(ProjectOperator projection) {
 	// ignored because of topDown - makes no harm
-    }
-
-    @Override
-    public void visit(
-	    SampleAsideAndForwardOperator sampleAsideAndForwardOperator) {
-	// nothing to visit or add
     }
 
     @Override

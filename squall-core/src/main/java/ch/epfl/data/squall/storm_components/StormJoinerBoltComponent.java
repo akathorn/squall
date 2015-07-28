@@ -91,17 +91,6 @@ public abstract class StormJoinerBoltComponent extends StormBoltComponent {
 	    StormEmitter secondEmitter, ComponentProperties cp,
 	    List<String> allCompNames, Predicate joinPredicate,
 	    int hierarchyPosition, TopologyBuilder builder,
-	    TopologyKiller killer, boolean _isEWHPartitioner, Config conf) {
-	super(cp, allCompNames, hierarchyPosition, _isEWHPartitioner, conf);
-	initialize(firstEmitter, secondEmitter, cp, allCompNames,
-		joinPredicate, hierarchyPosition, builder, killer, conf);
-
-    }
-
-    public StormJoinerBoltComponent(StormEmitter firstEmitter,
-	    StormEmitter secondEmitter, ComponentProperties cp,
-	    List<String> allCompNames, Predicate joinPredicate,
-	    int hierarchyPosition, TopologyBuilder builder,
 	    TopologyKiller killer, Config conf) {
 	super(cp, allCompNames, hierarchyPosition, conf);
 	initialize(firstEmitter, secondEmitter, cp, allCompNames,

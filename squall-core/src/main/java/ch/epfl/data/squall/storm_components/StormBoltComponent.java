@@ -35,8 +35,6 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import ch.epfl.data.squall.components.ComponentProperties;
-import ch.epfl.data.squall.ewh.main.PushStatisticCollector;
-import ch.epfl.data.squall.ewh.operators.SampleAsideAndForwardOperator;
 import ch.epfl.data.squall.expressions.ValueExpression;
 import ch.epfl.data.squall.operators.AggregateOperator;
 import ch.epfl.data.squall.operators.ChainOperator;
@@ -86,12 +84,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
     protected long numNegatives = 0;
     protected double maxNegative = 0;
 
-    // StatisticsCollector
-    private PushStatisticCollector _sc;
-
-    // EWH histogram
-    private boolean _isEWHPartitioner;
-
     /*
      * //TODO For Window Semantics
      */
@@ -102,13 +94,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
 				  // which is full history
     public long _latestTimeStamp = -1;
     public long _tumblingWindowSize = -1;// For tumbling semantics
-
-    public StormBoltComponent(ComponentProperties cp,
-	    List<String> allCompNames, int hierarchyPosition,
-	    boolean isEWHPartitioner, Map conf) {
-	this(cp, allCompNames, hierarchyPosition, conf);
-	_isEWHPartitioner = isEWHPartitioner;
-    }
 
     public StormBoltComponent(ComponentProperties cp,
 	    List<String> allCompNames, int hierarchyPosition, Map conf) {
@@ -175,15 +160,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
 	    declarer.declareStream(SystemParameters.DATA_STREAM, new Fields(
 		    outputFields));
 
-	    if (_isEWHPartitioner) {
-		// EQUI-WEIGHT HISTOGRAM
-		final List<String> outputFieldsPart = new ArrayList<String>();
-		outputFieldsPart.add(StormComponent.COMP_INDEX);
-		outputFieldsPart.add(StormComponent.TUPLE); // list of string
-		outputFieldsPart.add(StormComponent.HASH);
-		declarer.declareStream(SystemParameters.PARTITIONER,
-			new Fields(outputFieldsPart));
-	    }
 	}
     }
 
@@ -191,9 +167,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
 	printStatistics(SystemParameters.FINAL_PRINT);
 	if (getChainOperator() != null) {
 	    getChainOperator().finalizeProcessing();
-	}
-	if (MyUtilities.isStatisticsCollector(_conf, _hierarchyPosition)) {
-	    _sc.finalizeProcessing();
 	}
     }
 
@@ -266,18 +239,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
 
 	// initial statistics
 	printStatistics(SystemParameters.INITIAL_PRINT);
-	if (MyUtilities.isStatisticsCollector(_conf, _hierarchyPosition)) {
-	    _sc = new PushStatisticCollector(map);
-	}
-
-	// equi-weight histogram
-	if (_isEWHPartitioner) {
-	    // extract sampleAside operator
-	    SampleAsideAndForwardOperator saf = getChainOperator()
-		    .getSampleAside();
-	    saf.setCollector(_collector);
-	    saf.setComponentIndex(_componentIndex);
-	}
     }
 
     @Override
@@ -375,18 +336,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
 	    MyUtilities.processFinalAck(_numRemainingParents,
 		    getHierarchyPosition(), getConf(), stormTupleRcv,
 		    getCollector(), getPeriodicAggBatch());
-	    if (_isEWHPartitioner) {
-		// rel size
-		Values relSize = MyUtilities.createRelSizeTuple(
-			_componentIndex, (int) getNumSentTuples());
-		_collector.emit(SystemParameters.PARTITIONER, relSize);
-
-		// final ack
-		MyUtilities.processFinalAckCustomStream(
-			SystemParameters.PARTITIONER, _numRemainingParents,
-			getHierarchyPosition(), getConf(), stormTupleRcv,
-			getCollector(), getPeriodicAggBatch());
-	    }
 	    return true;
 	}
 	return false;
@@ -409,13 +358,6 @@ public abstract class StormBoltComponent extends BaseRichBolt implements
 		timestamp, _componentIndex, _hashIndexes, _hashExpressions,
 		_conf);
 	MyUtilities.sendTuple(stormTupleSnd, stormTupleRcv, _collector, _conf);
-    }
-
-    protected void sendToStatisticsCollector(List<String> tuple,
-	    int relationNumber) {
-	if (MyUtilities.isStatisticsCollector(_conf, _hierarchyPosition)) {
-	    _sc.processTuple(tuple, relationNumber);
-	}
     }
 
     protected void setCollector(OutputCollector collector) {

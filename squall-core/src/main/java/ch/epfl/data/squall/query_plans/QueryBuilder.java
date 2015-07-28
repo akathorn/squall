@@ -30,7 +30,6 @@ import ch.epfl.data.squall.components.Component;
 import ch.epfl.data.squall.components.DataSourceComponent;
 import ch.epfl.data.squall.components.EquiJoinComponent;
 import ch.epfl.data.squall.components.theta.AdaptiveThetaJoinComponent;
-import ch.epfl.data.squall.ewh.components.DummyComponent;
 import ch.epfl.data.squall.storm_components.StormComponent;
 import ch.epfl.data.squall.storm_components.synchronization.TopologyKiller;
 import backtype.storm.topology.TopologyBuilder;
@@ -121,9 +120,6 @@ public class QueryBuilder implements Serializable {
 		// a last component (it might be multiple of them)
 		component.makeBolts(builder, killer, allCompNames, conf,
 			StormComponent.FINAL_COMPONENT);
-	    } else if (child instanceof DummyComponent) {
-		component.makeBolts(builder, killer, allCompNames, conf,
-			StormComponent.NEXT_TO_DUMMY);
 	    } else if (child.getChild() == null
 		    && !(child instanceof AdaptiveThetaJoinComponent)) {
 		// if the child is dynamic, then reshuffler is NEXT_TO_LAST

@@ -78,10 +78,10 @@ public class StormDataSource extends StormSpoutComponent {
 
     public StormDataSource(ComponentProperties cp, List<String> allCompNames,
                            ReaderProvider provider, String resourceName, int hierarchyPosition, int parallelism,
-                           boolean isPartitioner, TopologyBuilder builder,
+                           TopologyBuilder builder,
                            TopologyKiller killer, Config conf) {
 
-	super(cp, allCompNames, hierarchyPosition, isPartitioner, conf);
+	super(cp, allCompNames, hierarchyPosition, conf);
 	_operatorChain = cp.getChainOperator();
 	_name = cp.getName();
 	_aggBatchOutputMillis = cp.getBatchOutputMillis();

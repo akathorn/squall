@@ -22,7 +22,6 @@ package ch.epfl.data.squall.operators;
 import java.util.ArrayList;
 import java.util.List;
 
-import ch.epfl.data.squall.ewh.operators.SampleAsideAndForwardOperator;
 import ch.epfl.data.squall.visitors.OperatorVisitor;
 
 public class ChainOperator implements Operator {
@@ -135,13 +134,6 @@ public class ChainOperator implements Operator {
 	for (final Operator op : _operators)
 	    if (op instanceof ProjectOperator)
 		return (ProjectOperator) op;
-	return null;
-    }
-
-    public SampleAsideAndForwardOperator getSampleAside() {
-	for (final Operator op : _operators)
-	    if (op instanceof SampleAsideAndForwardOperator)
-		return (SampleAsideAndForwardOperator) op;
 	return null;
     }
 

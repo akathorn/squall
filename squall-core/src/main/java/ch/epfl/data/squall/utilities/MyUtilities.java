@@ -52,25 +52,6 @@ import backtype.storm.tuple.Values;
 import ch.epfl.data.squall.components.Component;
 import ch.epfl.data.squall.components.DataSourceComponent;
 import ch.epfl.data.squall.components.theta.ThetaJoinComponent;
-import ch.epfl.data.squall.ewh.algorithms.DenseMonotonicWeightPrecomputation;
-import ch.epfl.data.squall.ewh.algorithms.PWeightPrecomputation;
-import ch.epfl.data.squall.ewh.algorithms.ShallowCoarsener;
-import ch.epfl.data.squall.ewh.algorithms.WeightPrecomputation;
-import ch.epfl.data.squall.ewh.algorithms.optimality.WeightFunction;
-import ch.epfl.data.squall.ewh.components.EWHSampleMatrixComponent;
-import ch.epfl.data.squall.ewh.components.EquiDepthHistogramComponent;
-import ch.epfl.data.squall.ewh.components.OkcanSampleMatrixComponent;
-import ch.epfl.data.squall.ewh.data_structures.JoinMatrix;
-import ch.epfl.data.squall.ewh.data_structures.ListAdapter;
-import ch.epfl.data.squall.ewh.data_structures.ListJavaGeneric;
-import ch.epfl.data.squall.ewh.data_structures.ListTIntAdapter;
-import ch.epfl.data.squall.ewh.data_structures.ListTLongAdapter;
-import ch.epfl.data.squall.ewh.data_structures.NumOfBuckets;
-import ch.epfl.data.squall.ewh.data_structures.Region;
-import ch.epfl.data.squall.ewh.data_structures.UJMPAdapterIntMatrix;
-import ch.epfl.data.squall.ewh.operators.SampleAsideAndForwardOperator;
-import ch.epfl.data.squall.ewh.storm_components.stream_grouping.RangeFilteredMulticastStreamGrouping;
-import ch.epfl.data.squall.ewh.storm_components.stream_grouping.RangeMulticastStreamGrouping;
 import ch.epfl.data.squall.expressions.ValueExpression;
 import ch.epfl.data.squall.operators.AggregateOperator;
 import ch.epfl.data.squall.operators.ProjectOperator;
@@ -96,117 +77,6 @@ import ch.epfl.data.squall.utilities.SystemParameters.HistogramType;
 import ch.epfl.data.squall.window_semantics.WindowSemanticsManager;
 
 public class MyUtilities {
-    public static QueryBuilder addEWHSampler(Component firstParent,
-	    Component secondParent, int firstKeyProject, int secondKeyProject,
-	    QueryBuilder queryPlan, NumericType keyType,
-	    ComparisonPredicate comparison, Map conf) {
-	ProjectOperator project1 = new ProjectOperator(
-		new int[] { firstKeyProject });
-	ProjectOperator project2 = new ProjectOperator(
-		new int[] { secondKeyProject });
-	return addEWHSampler(firstParent, secondParent, project1, project2,
-		queryPlan, keyType, comparison, conf);
-    }
-
-    public static QueryBuilder addEWHSampler(Component firstParent,
-	    Component secondParent, ProjectOperator project1,
-	    ProjectOperator project2, QueryBuilder queryBuilder,
-	    NumericType keyType, ComparisonPredicate comparison, Map conf) {
-	int firstRelSize = SystemParameters.getInt(conf, "FIRST_REL_SIZE");
-	int secondRelSize = SystemParameters.getInt(conf, "SECOND_REL_SIZE");
-	int numLastJoiners = SystemParameters.getInt(conf, "PAR_LAST_JOINERS");
-
-	// compute Number of buckets
-	NumOfBuckets numOfBuckets = MyUtilities.computeSampleMatrixBuckets(
-		firstRelSize, secondRelSize, numLastJoiners, conf);
-	int firstNumOfBuckets = numOfBuckets.getXNumOfBuckets();
-	int secondNumOfBuckets = numOfBuckets.getYNumOfBuckets();
-	LOG.info("In the sample matrix, FirstNumOfBuckets = "
-		+ firstNumOfBuckets + ", SecondNumOfBuckets = "
-		+ secondNumOfBuckets);
-
-	// hash is always 0 as the key is there
-	List<Integer> hash = new ArrayList<Integer>(Arrays.asList(0));
-
-	firstParent.add(project1).setOutputPartKey(hash);
-	secondParent.add(project2).setOutputPartKey(hash);
-
-	// equi-weight histogram
-	// send something to the extra partitioner node
-	setParentPartitioner(firstParent);
-	setParentPartitioner(secondParent);
-	// add operators which samples for partitioner
-	SampleAsideAndForwardOperator saf1 = new SampleAsideAndForwardOperator(
-		firstRelSize, firstNumOfBuckets, SystemParameters.PARTITIONER,
-		conf);
-	SampleAsideAndForwardOperator saf2 = new SampleAsideAndForwardOperator(
-		secondRelSize, secondNumOfBuckets,
-		SystemParameters.PARTITIONER, conf);
-	firstParent.add(saf1);
-	secondParent.add(saf2);
-
-	// do we build d2 out of the first relation (_firstParent)?
-	boolean isFirstD2 = SystemParameters.getBoolean(conf, "IS_FIRST_D2");
-	EWHSampleMatrixComponent ewhComp = new EWHSampleMatrixComponent(
-		firstParent, secondParent, isFirstD2, keyType, comparison,
-		numLastJoiners, firstRelSize, secondRelSize, firstNumOfBuckets,
-		secondNumOfBuckets);
-	queryBuilder.add(ewhComp);
-	return queryBuilder;
-    }
-
-    public static QueryBuilder addOkcanSampler(Component firstParent,
-	    Component secondParent, int firstKeyProject, int secondKeyProject,
-	    QueryBuilder queryPlan, NumericType keyType,
-	    ComparisonPredicate comparison, Map conf) {
-	ProjectOperator project1 = new ProjectOperator(
-		new int[] { firstKeyProject });
-	ProjectOperator project2 = new ProjectOperator(
-		new int[] { secondKeyProject });
-
-	return addOkcanSampler(firstParent, secondParent, project1, project2,
-		queryPlan, keyType, comparison, conf);
-    }
-
-    public static QueryBuilder addOkcanSampler(Component firstParent,
-	    Component secondParent, ProjectOperator project1,
-	    ProjectOperator project2, QueryBuilder queryBuilder,
-	    NumericType keyType, ComparisonPredicate comparison, Map conf) {
-	int firstRelSize = SystemParameters.getInt(conf, "FIRST_REL_SIZE");
-	int secondRelSize = SystemParameters.getInt(conf, "SECOND_REL_SIZE");
-	int firstNumOfBuckets = SystemParameters.getInt(conf,
-		"FIRST_NUM_OF_BUCKETS");
-	int secondNumOfBuckets = SystemParameters.getInt(conf,
-		"SECOND_NUM_OF_BUCKETS");
-	int numLastJoiners = SystemParameters.getInt(conf, "PAR_LAST_JOINERS");
-
-	// adjust the number of buckets such that no bucket is more than 2x
-	// bigger than others
-	firstNumOfBuckets = MyUtilities.adjustPartitioning(firstRelSize,
-		firstNumOfBuckets, "c_x");
-	secondNumOfBuckets = MyUtilities.adjustPartitioning(secondRelSize,
-		secondNumOfBuckets, "c_y");
-
-	// hash is always 0 as the key is there
-	List<Integer> hash = new ArrayList<Integer>(Arrays.asList(0));
-
-	SampleOperator sample1 = new SampleOperator(firstRelSize,
-		firstNumOfBuckets);
-	SampleOperator sample2 = new SampleOperator(secondRelSize,
-		secondNumOfBuckets);
-	firstParent.add(sample1).add(project1).setOutputPartKey(hash);
-	secondParent.add(sample2).add(project2).setOutputPartKey(hash);
-
-	// In principle, we could run this on non-materialized relations as well
-	// Instead of JoinComponent, we just put OkcanSampleMatrixComponent
-	OkcanSampleMatrixComponent okcanComp = new OkcanSampleMatrixComponent(
-		firstParent, secondParent, keyType, comparison, numLastJoiners,
-		firstNumOfBuckets, secondNumOfBuckets);
-	queryBuilder.add(okcanComp);
-
-	return queryBuilder;
-    }
-
     private static void addSampleOp(Component parent, ProjectOperator project,
 	    int relSize, int numLastJoiners, Map conf) {
 	// hash is always 0 as the key is there
@@ -214,62 +84,6 @@ public class MyUtilities {
 
 	SampleOperator sample = new SampleOperator(relSize, numLastJoiners);
 	parent.add(sample).add(project).setOutputPartKey(hash);
-    }
-
-    public static QueryBuilder addSrcHistogram(Component relationJPS1,
-	    int firstKeyProject, Component relationJPS2, int secondKeyProject,
-	    NumericType keyType, ComparisonPredicate comparison,
-	    boolean isEWHD2Histogram, boolean isEWHS1Histogram, Map conf) {
-	QueryBuilder queryBuilder = new QueryBuilder();
-	int relSize1 = -1, relSize2 = -1;
-	int keyProject1 = -1, keyProject2 = -1;
-	Component r1 = null, r2 = null; // r2 feeds D2Combiner, r1 feeds
-					// S1Reservoir directly
-
-	boolean isFirstD2 = SystemParameters.getBoolean(conf, "IS_FIRST_D2");
-	if (isFirstD2) {
-	    relSize2 = SystemParameters.getInt(conf, "FIRST_REL_SIZE");
-	    r2 = relationJPS1;
-	    keyProject2 = firstKeyProject;
-
-	    relSize1 = SystemParameters.getInt(conf, "SECOND_REL_SIZE");
-	    r1 = relationJPS2;
-	    keyProject1 = secondKeyProject;
-	} else {
-	    relSize1 = SystemParameters.getInt(conf, "FIRST_REL_SIZE");
-	    r1 = relationJPS1;
-	    keyProject1 = firstKeyProject;
-
-	    relSize2 = SystemParameters.getInt(conf, "SECOND_REL_SIZE");
-	    r2 = relationJPS2;
-	    keyProject2 = secondKeyProject;
-	}
-
-	ProjectOperator project1 = new ProjectOperator(
-		new int[] { keyProject1 });
-	ProjectOperator project2 = new ProjectOperator(
-		new int[] { keyProject2 });
-
-	// one or two relations are part of the query plan +
-	// createHistogramComponent
-	int numLastJoiners = SystemParameters.getInt(conf, "PAR_LAST_JOINERS");
-	if (isEWHD2Histogram) {
-	    addSampleOp(r2, project2, relSize2, numLastJoiners, conf);
-	    queryBuilder.add(r2);
-	} else {
-	    r2 = null;
-	}
-	if (isEWHS1Histogram) {
-	    addSampleOp(r1, project1, relSize1, numLastJoiners, conf);
-	    queryBuilder.add(r1);
-	} else {
-	    r1 = null;
-	}
-	EquiDepthHistogramComponent r2HistComp = new EquiDepthHistogramComponent(
-		r1, r2, keyType, comparison, numLastJoiners);
-	queryBuilder.add(r2HistComp);
-
-	return queryBuilder;
     }
 
     /*
@@ -355,42 +169,6 @@ public class MyUtilities {
         return currentBolt;
     }
 
-    public static InputDeclarer attachEmitterComponentsReshuffled(
-	    InputDeclarer currentBolt, StormEmitter emitter1,
-	    StormEmitter... emittersArray) {
-	final List<StormEmitter> emittersList = new ArrayList<StormEmitter>();
-	emittersList.add(emitter1);
-	emittersList.addAll(Arrays.asList(emittersArray));
-
-	for (final StormEmitter emitter : emittersList) {
-	    final String[] emitterIDs = emitter.getEmitterIDs();
-	    for (final String emitterID : emitterIDs)
-		currentBolt = currentBolt.shuffleGrouping(emitterID);
-	}
-	return currentBolt;
-    }
-
-    public static InputDeclarer attachEmitterFilteredRangeMulticast(
-	    String streamId, Map map, ComparisonPredicate comparison,
-	    NumericType wrapper, HistogramType dstHistType,
-	    HistogramType srcHistType, String parentCompName,
-	    InputDeclarer currentBolt, StormEmitter emitter1,
-	    StormEmitter... emittersArray) {
-	final List<StormEmitter> emittersList = new ArrayList<StormEmitter>();
-	emittersList.add(emitter1);
-	emittersList.addAll(Arrays.asList(emittersArray));
-
-	for (final StormEmitter emitter : emittersList) {
-	    final String[] emitterIDs = emitter.getEmitterIDs();
-	    for (final String emitterID : emitterIDs)
-		currentBolt = currentBolt.customGrouping(emitterID, streamId,
-			new RangeFilteredMulticastStreamGrouping(map,
-				comparison, wrapper, dstHistType, srcHistType,
-				parentCompName));
-	}
-	return currentBolt;
-    }
-
     public static InputDeclarer attachEmitterHash(Map map,
 	    List<String> fullHashList, InputDeclarer currentBolt,
 	    StormEmitter emitter1, StormEmitter... emittersArray) {
@@ -419,77 +197,6 @@ public class MyUtilities {
 	    for (final String emitterID : emitterIDs)
 		currentBolt = currentBolt.customGrouping(emitterID, streamId,
 			new HashStreamGrouping(map, fullHashList));
-	}
-	return currentBolt;
-    }
-
-    // TODO the following two methods can be shortened by invoking each other
-    public static InputDeclarer attachEmitterRange(Map map,
-	    NumericType wrapper, HistogramType histType,
-	    InputDeclarer currentBolt, StormEmitter emitter1,
-	    StormEmitter... emittersArray) {
-	final List<StormEmitter> emittersList = new ArrayList<StormEmitter>();
-	emittersList.add(emitter1);
-	emittersList.addAll(Arrays.asList(emittersArray));
-
-	for (final StormEmitter emitter : emittersList) {
-	    final String[] emitterIDs = emitter.getEmitterIDs();
-	    for (final String emitterID : emitterIDs)
-		currentBolt = currentBolt
-			.customGrouping(emitterID,
-				new RangeMulticastStreamGrouping(map, wrapper,
-					histType));
-	}
-	return currentBolt;
-    }
-
-    public static InputDeclarer attachEmitterRange(Map map,
-	    NumericType wrapper, HistogramType histType,
-	    InputDeclarer currentBolt, String emitterId1,
-	    String... emitterIdArray) {
-	final List<String> emittersIdsList = new ArrayList<String>();
-	emittersIdsList.add(emitterId1);
-	emittersIdsList.addAll(Arrays.asList(emitterIdArray));
-
-	for (final String emitterId : emittersIdsList) {
-	    currentBolt = currentBolt.customGrouping(emitterId,
-		    new RangeMulticastStreamGrouping(map, wrapper, histType));
-	}
-	return currentBolt;
-    }
-
-    public static InputDeclarer attachEmitterRangeMulticast(Map map,
-	    ComparisonPredicate comparison, NumericType wrapper,
-	    HistogramType histType, InputDeclarer currentBolt,
-	    StormEmitter emitter1, StormEmitter... emittersArray) {
-	final List<StormEmitter> emittersList = new ArrayList<StormEmitter>();
-	emittersList.add(emitter1);
-	emittersList.addAll(Arrays.asList(emittersArray));
-
-	for (final StormEmitter emitter : emittersList) {
-	    final String[] emitterIDs = emitter.getEmitterIDs();
-	    for (final String emitterID : emitterIDs)
-		currentBolt = currentBolt.customGrouping(emitterID,
-			new RangeMulticastStreamGrouping(map, comparison,
-				wrapper, histType));
-	}
-	return currentBolt;
-    }
-
-    public static InputDeclarer attachEmitterRangeMulticast(String streamId,
-	    Map map, ComparisonPredicate comparison, NumericType wrapper,
-	    HistogramType histType, InputDeclarer currentBolt,
-	    StormEmitter emitter1, StormEmitter... emittersArray) {
-	final List<StormEmitter> emittersList = new ArrayList<StormEmitter>();
-	emittersList.add(emitter1);
-	emittersList.addAll(Arrays.asList(emittersArray));
-
-	for (final StormEmitter emitter : emittersList) {
-	    final String[] emitterIDs = emitter.getEmitterIDs();
-	    for (final String emitterID : emitterIDs)
-		currentBolt = currentBolt.customGrouping(emitterID, streamId,
-			new RangeMulticastStreamGrouping(map, comparison,
-				wrapper, histType));
 	}
 	return currentBolt;
     }
@@ -600,34 +307,6 @@ public class MyUtilities {
 	// logic
     }
 
-    public static void checkEquality(WeightPrecomputation first,
-	    PWeightPrecomputation second) {
-	int xSize = first.getXSize();
-	int ySize = first.getYSize();
-	if (xSize != second.getXSize() || ySize != second.getYSize()) {
-	    throw new RuntimeException(
-		    "The two WeightPrecomputation has different sizes: ("
-			    + xSize + ", " + ySize + ") " + "versus ("
-			    + second.getXSize() + ", " + second.getYSize()
-			    + ")");
-	}
-
-	for (int i = 0; i < xSize; i++) {
-	    for (int j = 0; j < ySize; j++) {
-		int fps = first.getPrefixSum(i, j);
-		int sps = second.getPrefixSum(i, j);
-		if (fps != sps) {
-		    throw new RuntimeException(
-			    "The two WeightPrecomputation differ at position ("
-				    + i + ", " + j + "): " + fps + " and "
-				    + sps + ".");
-		}
-	    }
-	}
-
-	LOG.info("The two WeightPrecomputation are the same!");
-    }
-
     public static void checkIIPrecValid(Map conf) {
 	String key = "SECOND_PRECOMPUTATION";
 	List<String> values = new ArrayList<String>(Arrays.asList("DENSE",
@@ -663,206 +342,15 @@ public class MyUtilities {
 	return Math.abs(hash.hashCode()) % targetParallelism;
     }
 
-    public static void compareActualAndSampleJM(JoinMatrix sampleMatrix,
-	    ShallowCoarsener sampleSC, WeightPrecomputation sampleWP) {
-	long start = System.currentTimeMillis();
-
-	Map map = sampleMatrix.getConfiguration();
-	WeightFunction wf = sampleWP.getWeightFunction();
-
-	// initial check-ups
-	int firstRelSize = SystemParameters.getInt(map, "FIRST_REL_SIZE");
-	int secondRelSize = SystemParameters.getInt(map, "SECOND_REL_SIZE");
-	int nsx = sampleMatrix.getXSize();
-	int nsy = sampleMatrix.getYSize();
-	if ((firstRelSize != nsx) || (secondRelSize != nsy)) {
-	    throw new RuntimeException("Sample matrix " + nsx + "x" + nsy
-		    + " must be of relation size " + firstRelSize + "x"
-		    + secondRelSize + '!');
-	}
-
-	// let's create actual join matrix and its precomputation
-	JoinMatrix actualMatrix = createAndFillActualMatrix(sampleMatrix);
-	DenseMonotonicWeightPrecomputation actualWP = new DenseMonotonicWeightPrecomputation(
-		wf, actualMatrix, map);
-
-	// maxDiff parameters
-	Region mdRegion = null;
-	double mdSampleWeight = -1;
-	double mdActualWeight = -1;
-	double mdErrorPercent = -1;
-
-	List<Region> originalRegions = sampleSC.getCandidateRoundedCells(map);
-	for (Region originalRegion : originalRegions) {
-	    // no matter of the sampleWP type, getWeight expects originalRegion
-	    double sampleWeight = sampleWP.getWeight(originalRegion);
-	    double actualWeight = actualWP.getWeight(originalRegion);
-	    double errorPercent = computeDiffPercent(sampleWeight, actualWeight);
-	    if (errorPercent > mdErrorPercent) {
-		// max error so far: will be saved
-		mdRegion = originalRegion;
-		mdSampleWeight = sampleWeight;
-		mdActualWeight = actualWeight;
-		mdErrorPercent = errorPercent;
-	    }
-
-	    LOG.info("For candidate rounded cell (in terms of original matrix): "
-		    + originalRegion);
-	    LOG.info("   ActualWeight = " + actualWeight);
-	    LOG.info("   SampleWeight = " + sampleWeight);
-	}
-
-	LOG.info("Maximum error is " + mdErrorPercent + "% for " + mdRegion);
-	LOG.info("   Maximum ActualWeight = " + mdActualWeight);
-	LOG.info("   Maximum SampleWeight = " + mdSampleWeight);
-
-	double elapsed = (System.currentTimeMillis() - start) / 1000.0;
-	LOG.info("Checking the precision of sampling takes " + elapsed
-		+ " seconds.");
-    }
-
     private static double computeDiffPercent(double first, double second) {
 	double bigger = first > second ? first : second;
 	double smaller = first < second ? first : second;
 	return (bigger / smaller - 1) * 100;
     }
 
-    public static int computeManualSampleSize(Config conf,
-	    int firstNumOfBuckets, int secondNumOfBuckets) {
-	String mode = SystemParameters.getString(conf,
-		"OUTPUT_SAMPLE_SIZE_MODE");
-	int constant = SystemParameters.getInt(conf,
-		"OUTPUT_SAMPLE_SIZE_CONSTANT");
-	if (mode.equalsIgnoreCase("MULTIPLY")) {
-	    int n_c_s = MyUtilities.getMax(firstNumOfBuckets,
-		    secondNumOfBuckets);
-	    return constant * n_c_s; // the actual output sample size is
-				     // currently upper bounded by the size
-				     // of the bigger relation
-	} else if (mode.equalsIgnoreCase("EXACT")) {
-	    return constant;
-	} else {
-	    throw new RuntimeException("Unsupported OUTPUT_SAMPLE_SIZE_MODE "
-		    + mode);
-	}
-    }
-
     public static double computePercentage(int smaller, int bigger) {
 	int diff = bigger - smaller; // always positive
 	return ((double) diff) / bigger;
-    }
-
-    public static NumOfBuckets computeSampleMatrixBuckets(int firstRelSize,
-	    int secondRelSize, int numLastJoiners, Map conf) {
-	int firstNumOfBuckets, secondNumOfBuckets;
-	/*
-	 * if(!SystemParameters.getBoolean(conf, "DIP_DISTRIBUTED")){ // the
-	 * same as relation sizes firstNumOfBuckets = firstRelSize;
-	 * secondNumOfBuckets = secondRelSize; }else
-	 */if (SystemParameters.isExisting(conf, "FIRST_NUM_OF_BUCKETS")
-		&& SystemParameters.isExisting(conf, "SECOND_NUM_OF_BUCKETS")) {
-	    // manually
-	    firstNumOfBuckets = SystemParameters.getInt(conf,
-		    "FIRST_NUM_OF_BUCKETS");
-	    secondNumOfBuckets = SystemParameters.getInt(conf,
-		    "SECOND_NUM_OF_BUCKETS");
-	} else {
-	    // automatically
-	    int overprovision = 2;
-	    long m = getM(firstRelSize, secondRelSize, conf);
-	    String bucketsType = SystemParameters.getString(conf,
-		    "SAMPLE_MATRIX_BUCKET_TYPE");
-	    if (bucketsType.equals("EQUI_BUCKET_SIZE")) {
-		// (firstRelSize/firstNumBuckets) *
-		// (secondRelSize/secondNumBuckets) <= n/2J
-		// bucketSize = firstRelSize/firstNumBuckets =
-		// secondRelSize/secondNumBuckets
-		// overprovision = 2
-		int bucketSize = (int) Math.sqrt(((double) m)
-			/ (overprovision * numLastJoiners));
-		firstNumOfBuckets = firstRelSize / bucketSize;
-		secondNumOfBuckets = secondRelSize / bucketSize;
-	    } else if (bucketsType.equals("EQUI_BUCKET_NUMBER")) {
-		// (firstRelSize/firstNumBuckets) *
-		// (secondRelSize/secondNumBuckets) <= n/2J
-		// firstNumBuckets = secondNumBuckets = numBuckets
-		// overprovision = 2
-		int numBuckets = (int) Math.sqrt(((double) firstRelSize)
-			* secondRelSize * overprovision * numLastJoiners / m);
-		firstNumOfBuckets = numBuckets;
-		secondNumOfBuckets = numBuckets;
-	    } else {
-		throw new RuntimeException("Unsupported bucket type "
-			+ bucketsType);
-	    }
-	    // only in automatic mode, otherwise a user knows what he is doing
-	    firstNumOfBuckets = MyUtilities.adjustPartitioning(firstRelSize,
-		    firstNumOfBuckets, "n_s_x");
-	    secondNumOfBuckets = MyUtilities.adjustPartitioning(secondRelSize,
-		    secondNumOfBuckets, "n_s_y");
-	}
-	if (firstNumOfBuckets == 0 || secondNumOfBuckets == 0) {
-	    throw new RuntimeException(
-		    "Zero number of buckets! firstNumOfBuckets = "
-			    + firstNumOfBuckets + ", secondNumOfBuckets = "
-			    + secondNumOfBuckets);
-	}
-	return new NumOfBuckets(firstNumOfBuckets, secondNumOfBuckets);
-    }
-
-    private static JoinMatrix createAndFillActualMatrix(JoinMatrix sampleMatrix) {
-	int xSize = sampleMatrix.getXSize();
-	int ySize = sampleMatrix.getYSize();
-	ComparisonPredicate cp = sampleMatrix.getComparisonPredicate();
-	NumericType wrapper = sampleMatrix.getWrapper();
-	Map conf = sampleMatrix.getConfiguration();
-
-	// create matrix and fill it with the joinAttributes (keys)
-	JoinMatrix actualMatrix = new UJMPAdapterIntMatrix(xSize, ySize, conf,
-		cp, wrapper);
-	for (int i = 0; i < xSize; i++) {
-	    // sample matrix and actual matrix are of the same size
-	    actualMatrix.setJoinAttributeX(sampleMatrix.getJoinAttributeX(i));
-	}
-	for (int i = 0; i < ySize; i++) {
-	    actualMatrix.setJoinAttributeY(sampleMatrix.getJoinAttributeY(i));
-	}
-
-	// fill output
-	int firstCandInLastLine = 0;
-	for (int i = 0; i < xSize; i++) {
-	    boolean isFirstInLine = true;
-	    int x1 = i;
-	    int x2 = i;
-	    for (int j = firstCandInLastLine; j < ySize; j++) {
-		int y1 = j;
-		int y2 = j;
-		// LOG.info("x1 = " + x1 + ", y1 = " + y1 + ", x2 = " + x2 +
-		// ", y2 = " + y2);
-		Region region = new Region(x1, y1, x2, y2);
-		boolean isCandidate = MyUtilities.isCandidateRegion(
-			actualMatrix, region, cp, conf);
-		if (isCandidate) {
-		    // previously it was firstKeys.get(i), secondKeys.get(j)
-		    // corresponds to x/yBoundaries on n_s cells
-		    if (cp.test(actualMatrix.getJoinAttributeX(i),
-			    actualMatrix.getJoinAttributeY(j))) {
-			actualMatrix.setElement(1, i, j);
-		    }
-		    if (isFirstInLine) {
-			firstCandInLastLine = j;
-			isFirstInLine = false;
-		    }
-		}
-		if (!isFirstInLine && !isCandidate) {
-		    // I am right from the candidate are; the first
-		    // non-candidate guy means I should switch to the next row
-		    break;
-		}
-	    }
-	}
-
-	return actualMatrix;
     }
 
     public static String createHashString(List<String> tuple,
@@ -926,25 +414,6 @@ public class MyUtilities {
      * currentBolt.fieldsGrouping(emitterID, new Fields("Hash")); } } return
      * currentBolt; }
      */
-
-    public static <T extends Comparable<T>> ListAdapter<T> createListAdapter(
-	    Map conf) {
-	String collectionAdapter = SystemParameters.getString(conf,
-		"COLLECTION_ADAPTER");
-	String keyTypeStr = SystemParameters.getString(conf, "KEY_TYPE_STR");
-
-	if (collectionAdapter.equalsIgnoreCase("TROVE")) {
-	    if (keyTypeStr.equalsIgnoreCase("INTEGER")) {
-		return new ListTIntAdapter<T>();
-	    } else if (keyTypeStr.equalsIgnoreCase("LONG")) {
-		return new ListTLongAdapter<T>();
-	    }
-	} else if (collectionAdapter.equalsIgnoreCase("JAVA")) {
-	    return new ListJavaGeneric<T>();
-	}
-	throw new RuntimeException("Unsupported type collectionAdapter = "
-		+ collectionAdapter + ", keyTypeStr = " + keyTypeStr);
-    }
 
     public static List<String> createOutputTuple(List<String> firstTuple,
 	    List<String> secondTuple) {
@@ -1311,66 +780,6 @@ public class MyUtilities {
 	return SystemParameters.isExisting(conf, "DIP_BDB_TYPE")
 		&& SystemParameters.getString(conf, "DIP_BDB_TYPE")
 			.equalsIgnoreCase("UNIFORM");
-    }
-
-    public static <JAT extends Comparable<JAT>> boolean isCandidateRegion(
-	    JoinMatrix<JAT> joinMatrix, Region region, ComparisonPredicate cp,
-	    Map map) {
-	int x1 = region.get_x1();
-	int y1 = region.get_y1();
-	int x2 = region.get_x2();
-	int y2 = region.get_y2();
-
-	boolean isSample = SystemParameters.getBoolean(map,
-		"DIP_SAMPLE_STATISTICS");
-	JAT kx1, ky1, kx2, ky2;
-	if (isSample) {
-
-	    // obtain keys from positions: both keys and positions are inclusive
-	    NumericType wrapper = joinMatrix.getWrapper();
-	    if (x1 == 0) {
-		kx1 = (JAT) wrapper.getMinValue();
-	    } else {
-		kx1 = joinMatrix.getJoinAttributeX(x1);
-	    }
-	    if (y1 == 0) {
-		ky1 = (JAT) wrapper.getMinValue();
-	    } else {
-		ky1 = joinMatrix.getJoinAttributeY(y1);
-	    }
-	    if (x2 == joinMatrix.getXSize() - 1) {
-		kx2 = (JAT) wrapper.getMaxValue();
-	    } else {
-		kx2 = joinMatrix.getJoinAttributeX(x2);
-		JAT kx2Next = joinMatrix.getJoinAttributeX(x2 + 1);
-		if (!kx2.equals(kx2Next)) {
-		    // unless they share the boundary key,
-		    // this bucket is responsible for all the values just before
-		    // another bucket starts
-		    kx2 = (JAT) wrapper.minDecrement(kx2Next);
-		}
-	    }
-	    if (y2 == joinMatrix.getYSize() - 1) {
-		ky2 = (JAT) wrapper.getMaxValue();
-	    } else {
-		ky2 = joinMatrix.getJoinAttributeY(y2);
-		JAT ky2Next = joinMatrix.getJoinAttributeY(y2 + 1);
-		if (!ky2.equals(ky2Next)) {
-		    // unless they share the boundary key,
-		    // this bucket is responsible for all the values just before
-		    // another bucket starts
-		    ky2 = (JAT) wrapper.minDecrement(ky2Next);
-		}
-	    }
-	} else {
-	    kx1 = joinMatrix.getJoinAttributeX(x1);
-	    ky1 = joinMatrix.getJoinAttributeY(y1);
-	    kx2 = joinMatrix.getJoinAttributeX(x2);
-	    ky2 = joinMatrix.getJoinAttributeY(y2);
-	}
-
-	// kx2 and ky2 are inclusive; that's what cp.isCandidateRegion expects
-	return cp.isCandidateRegion(kx1, ky1, kx2, ky2);
     }
 
     public static boolean isCustomTimestampMode(Map map) {
@@ -1780,19 +1189,6 @@ public class MyUtilities {
 	    collector.emit(stormTupleRcv, stormTupleSnd);
 	else
 	    collector.emit(stormTupleSnd);
-    }
-
-    private static void setParentPartitioner(Component component) {
-	if (component instanceof DataSourceComponent) {
-	    DataSourceComponent dsComp = (DataSourceComponent) component;
-	    dsComp.setPartitioner(true);
-	} else if (component instanceof ThetaJoinComponent) {
-	    ThetaJoinComponent tComp = (ThetaJoinComponent) component;
-	    tComp.setPartitioner(true);
-	} else {
-	    throw new RuntimeException("Unsupported component type "
-		    + component);
-	}
     }
 
     public static List<String> stringToTuple(String tupleString, Map conf) { // arraylist

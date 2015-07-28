@@ -48,9 +48,6 @@ public class ThetaJoinComponent extends AbstractJoinerComponent<ThetaJoinCompone
     private boolean _isContentSensitive;
     private Type _contentSensitiveThetaJoinWrapper = null;
 
-    // equi-weight histogram
-    private boolean _isPartitioner;
-
     public ThetaJoinComponent(Component firstParent, Component secondParent,
 	    boolean isContentSensitive) {
       super(new Component[]{firstParent, secondParent});
@@ -91,7 +88,7 @@ public class ThetaJoinComponent extends AbstractJoinerComponent<ThetaJoinCompone
                                          killer, conf);
 	} else {
           joiner = new StormThetaJoin(_firstParent, _secondParent, this,
-                                      allCompNames, getJoinPredicate(), _isPartitioner,
+                                      allCompNames, getJoinPredicate(),
                                       hierarchyPosition, builder, killer, conf,
                                       _isContentSensitive, _contentSensitiveThetaJoinWrapper);
 	}
@@ -116,8 +113,4 @@ public class ThetaJoinComponent extends AbstractJoinerComponent<ThetaJoinCompone
 		"Load balancing for Theta join is done inherently!");
     }
 
-    public ThetaJoinComponent setPartitioner(boolean isPartitioner) {
-	_isPartitioner = isPartitioner;
-	return this;
-    }
 }

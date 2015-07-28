@@ -46,9 +46,6 @@ public class DataSourceComponent extends AbstractComponent<DataSourceComponent> 
     private final ReaderProvider _provider;
     private final String _resourceName;
 
-    // equi-weight histogram
-    private boolean _isPartitioner;
-
     // invoked from the new Interface (QueryPlan not QueryBuilder)
     public DataSourceComponent(String tableName, Map conf) {
       this(tableName.toUpperCase(),
@@ -95,7 +92,7 @@ public class DataSourceComponent extends AbstractComponent<DataSourceComponent> 
                                      getChainOperator().getAggregation(), conf);
 
 	setStormEmitter(new StormDataSource(this, allCompNames, _provider, _resourceName,
-                                            hierarchyPosition, parallelism, _isPartitioner, builder,
+                                            hierarchyPosition, parallelism, builder,
                                             killer, conf));
     }
 
@@ -117,10 +114,5 @@ public class DataSourceComponent extends AbstractComponent<DataSourceComponent> 
     public List<String> getFullHashList() {
 	throw new RuntimeException(
 		"This method should not be invoked for DataSourceComponent!");
-    }
-
-    public DataSourceComponent setPartitioner(boolean isPartitioner) {
-	_isPartitioner = isPartitioner;
-	return this;
     }
 }

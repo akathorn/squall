@@ -19,7 +19,6 @@
 
 package ch.epfl.data.squall.visitors;
 
-import ch.epfl.data.squall.ewh.operators.SampleAsideAndForwardOperator;
 import ch.epfl.data.squall.operators.AggregateOperator;
 import ch.epfl.data.squall.operators.ChainOperator;
 import ch.epfl.data.squall.operators.DistinctOperator;
@@ -40,9 +39,6 @@ public interface OperatorVisitor {
     public void visit(PrintOperator printOperator);
 
     public void visit(ProjectOperator projection);
-
-    public void visit(
-	    SampleAsideAndForwardOperator sampleAsideAndForwardOperator);
 
     public void visit(SampleOperator sampleOperator);
 

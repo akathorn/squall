@@ -33,7 +33,6 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
 import ch.epfl.data.squall.components.ComponentProperties;
-import ch.epfl.data.squall.ewh.operators.SampleAsideAndForwardOperator;
 import ch.epfl.data.squall.expressions.ValueExpression;
 import ch.epfl.data.squall.operators.AggregateOperator;
 import ch.epfl.data.squall.operators.ChainOperator;
@@ -73,12 +72,9 @@ public abstract class StormSpoutComponent extends BaseRichSpout implements
     protected long numNegatives = 0;
     protected double maxNegative = 0;
 
-    // EWH histogram
-    private boolean _isPartitioner;
-
     public StormSpoutComponent(ComponentProperties cp,
 	    List<String> allCompNames, int hierarchyPosition,
-	    boolean isPartitioner, Map conf) {
+	    Map conf) {
 	_conf = conf;
 	_ID = cp.getName();
 	_componentIndex = String.valueOf(allCompNames.indexOf(_ID));
@@ -87,8 +83,6 @@ public abstract class StormSpoutComponent extends BaseRichSpout implements
 
 	_hashIndexes = cp.getHashIndexes();
 	_hashExpressions = cp.getHashExpressions();
-
-	_isPartitioner = isPartitioner;
     }
 
     // ManualBatchMode
@@ -135,30 +129,11 @@ public abstract class StormSpoutComponent extends BaseRichSpout implements
 	    outputFields.add(StormComponent.TIMESTAMP);
 	declarer.declareStream(SystemParameters.DATA_STREAM, new Fields(
 		outputFields));
-
-	if (_isPartitioner) {
-	    // EQUI-WEIGHT HISTOGRAM
-	    final List<String> outputFieldsPart = new ArrayList<String>();
-	    outputFieldsPart.add(StormComponent.COMP_INDEX);
-	    outputFieldsPart.add(StormComponent.TUPLE); // list of string
-	    outputFieldsPart.add(StormComponent.HASH);
-	    declarer.declareStream(SystemParameters.PARTITIONER, new Fields(
-		    outputFieldsPart));
-	}
     }
 
     private void finalAckSend() {
 	final Values finalAck = MyUtilities.createUniversalFinalAckTuple(_conf);
 	_collector.emit(finalAck);
-	if (_isPartitioner) {
-	    // rel size
-	    Values relSize = MyUtilities.createRelSizeTuple(_componentIndex,
-		    (int) getNumSentTuples());
-	    _collector.emit(SystemParameters.PARTITIONER, relSize);
-
-	    // final ack
-	    _collector.emit(SystemParameters.PARTITIONER, finalAck);
-	}
     }
 
     public abstract ChainOperator getChainOperator();
@@ -220,15 +195,6 @@ public abstract class StormSpoutComponent extends BaseRichSpout implements
 	_targetTimestamps = new long[_targetParallelism];
 	for (int i = 0; i < _targetParallelism; i++)
 	    _targetBuffers[i] = new StringBuilder("");
-
-	// equi-weight histogram
-	if (_isPartitioner) {
-	    // extract sampleAside operator
-	    SampleAsideAndForwardOperator saf = getChainOperator()
-		    .getSampleAside();
-	    saf.setCollector(_collector);
-	    saf.setComponentIndex(_componentIndex);
-	}
     }
 
     @Override

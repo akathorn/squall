@@ -31,7 +31,6 @@ import backtype.storm.Config;
 import backtype.storm.topology.TopologyBuilder;
 import ch.epfl.data.squall.components.Component;
 import ch.epfl.data.squall.components.theta.AdaptiveThetaJoinComponent;
-import ch.epfl.data.squall.ewh.components.DummyComponent;
 import ch.epfl.data.squall.query_plans.QueryBuilder;
 import ch.epfl.data.squall.query_plans.QueryPlan;
 import ch.epfl.data.squall.storm_components.StormComponent;

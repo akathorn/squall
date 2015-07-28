@@ -52,11 +52,11 @@ public class StormThetaJoin extends StormJoinerBoltComponent {
     public StormThetaJoin(StormEmitter firstEmitter,
 	    StormEmitter secondEmitter, ComponentProperties cp,
 	    List<String> allCompNames, Predicate joinPredicate,
-	    boolean isPartitioner, int hierarchyPosition,
+	    int hierarchyPosition,
 	    TopologyBuilder builder, TopologyKiller killer, Config conf,
 	    boolean isContentSensitive, Type wrapper) {
 	super(firstEmitter, secondEmitter, cp, allCompNames, joinPredicate,
-		hierarchyPosition, builder, killer, isPartitioner, conf);
+		hierarchyPosition, builder, killer, conf);
 	_statsUtils = new StatisticsUtilities(getConf(), LOG);
 	final int parallelism = SystemParameters.getInt(conf, getID() + "_PAR");
 	InputDeclarer currentBolt = builder.setBolt(getID(), this, parallelism);
