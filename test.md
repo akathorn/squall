@@ -1,3 +1,7 @@
+---
+title: test
+---
+
 # Testing
 markdown rules!
 
